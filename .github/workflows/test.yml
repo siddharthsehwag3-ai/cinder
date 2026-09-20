@@ -1,0 +1,61 @@
+name: Cinder CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install GCC
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          gcc --version
+          zig version
+
+      - name: Build and test Cinder
+        shell: pwsh
+        run: |
+          ./scripts/test.ps1
+
+      - name: Verify deployment files
+        shell: pwsh
+        run: |
+          $requiredFiles = @(
+            "web/index.html",
+            "web/globals.css",
+            "web/app.js",
+            "web/compiler-worker.js",
+            "web/cinder.wasm"
+          )
+
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path -LiteralPath $file)) {
+              throw "Missing deployment file: $file"
+            }
+          }
+
+          Write-Host "All deployment files are present."

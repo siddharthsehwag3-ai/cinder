@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <meta
+    name="theme-color"
+    content="#07090e"
+  >
+
+  <meta
+    name="description"
+    content="Write C, run it, and explore every stage of a compiler built from scratch."
+  >
+
+  <title>Cinder — Interactive C Compiler</title>
+
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307090e'/%3E%3Cpath d='M7 8h18L14 16h11L7 24l8-8z' fill='%235de4f4'/%3E%3Ccircle cx='23' cy='23' r='3' fill='%23ffb454'/%3E%3C/svg%3E"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="globals.css"
+  >
+</head>
+
+<body>
+  <div
+    class="ambient-light ambient-light-cyan"
+    aria-hidden="true"
+  ></div>
+
+  <div
+    class="ambient-light ambient-light-violet"
+    aria-hidden="true"
+  ></div>
+
+  <div
+    class="noise-layer"
+    aria-hidden="true"
+  ></div>
+
+  <header class="site-header">
+    <a
+      class="brand"
+      href="#compiler"
+      aria-label="Cinder compiler home"
+    >
+      <span
+        class="brand-symbol"
+        aria-hidden="true"
+      >
+        <span class="brand-orbit"></span>
+        <span class="brand-ember"></span>
+      </span>
+
+      <span class="brand-name">
+        CINDER
+      </span>
+
+      <span class="brand-divider"></span>
+
+      <span class="brand-description">
+        compiler lab
+      </span>
+    </a>
+
+    <nav
+      class="header-navigation"
+      aria-label="Compiler views"
+    >
+      <a
+        class="navigation-link active"
+        href="#compiler"
+        data-open-panel="output"
+      >
+        Workbench
+      </a>
+
+      <a
+        class="navigation-link"
+        href="#compiler"
+        data-open-panel="tokens"
+      >
+        Tokens
+      </a>
+
+      <a
+        class="navigation-link"
+        href="#compiler"
+        data-open-panel="tree"
+      >
+        Syntax tree
+      </a>
+
+      <a
+        class="navigation-link"
+        href="#compiler"
+        data-open-panel="instructions"
+      >
+        Instructions
+      </a>
+    </nav>
+
+    <div class="header-actions">
+      <button
+        class="contact-button"
+        id="contactDeveloperButton"
+        type="button"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M4 6.5h16v11H4z"></path>
+          <path d="m4.5 7 7.5 6 7.5-6"></path>
+        </svg>
+
+        <span>Contact the developer</span>
+      </button>
+
+      <div
+        class="engine-status"
+        title="The compiler runs locally in your browser"
+      >
+        <span
+          class="engine-status-light"
+          id="headerEngineLight"
+        ></span>
+
+        <span class="engine-status-label">
+          C engine
+        </span>
+
+        <strong id="headerEngineStatus">
+          loading
+        </strong>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section
+      class="compiler-introduction"
+      aria-labelledby="pageTitle"
+    >
+      <div class="introduction-heading">
+        <h1 id="pageTitle">
+          <span class="cinder-title">
+            CINDER
+          </span>
+
+          <em class="cinder-tagline">
+            write it. run it. understand it.
+          </em>
+        </h1>
+      </div>
+
+      <div class="introduction-copy">
+        <p>
+          Cinder is a compiler written from scratch in C.
+          Run a program, inspect every compilation stage,
+          and follow errors back to the exact source code.
+        </p>
+
+        <div class="local-note">
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 3 5.5 6v5.5c0 4.4 2.7 7.7 6.5 9.5 3.8-1.8 6.5-5.1 6.5-9.5V6z"
+            ></path>
+
+            <path d="m9 12 2 2 4-4"></path>
+          </svg>
+
+          <span>
+            Your code stays inside your browser.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="workbench"
+      id="compiler"
+      aria-label="Interactive C compiler"
+    >
+      <div
+        class="workbench-top-glow"
+        aria-hidden="true"
+      ></div>
+
+      <div class="workbench-toolbar">
+        <div
+          class="window-controls"
+          aria-hidden="true"
+        >
+          <span class="window-control-red"></span>
+          <span class="window-control-yellow"></span>
+          <span class="window-control-green"></span>
+        </div>
+
+        <label class="example-picker">
+          <span>Example</span>
+
+          <select
+            id="exampleSelect"
+            aria-label="Select an example C program"
+          >
+            <option value="fibonacci">
+              Fibonacci sequence
+            </option>
+
+            <option value="factorial">
+              Recursive factorial
+            </option>
+
+            <option value="fizzbuzz">
+              FizzBuzz challenge
+            </option>
+
+            <option value="controlFlow">
+              Loops and control flow
+            </option>
+
+            <option value="error">
+              Find the compiler error
+            </option>
+          </select>
+        </label>
+
+        <div class="toolbar-spacer"></div>
+
+        <button
+          class="toolbar-icon-button"
+          id="resetButton"
+          type="button"
+          aria-label="Reset the selected example"
+          title="Reset example"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6"
+            ></path>
+
+            <path d="M4 4v4.6h4.6"></path>
+          </svg>
+        </button>
+
+        <span
+          class="keyboard-shortcut"
+          title="Run with Ctrl+Enter"
+        >
+          Ctrl ↵
+        </span>
+
+        <button
+          class="run-button"
+          id="runButton"
+          type="button"
+        >
+          <span class="run-button-label">
+            Run program
+          </span>
+
+          <span
+            class="run-button-icon"
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="m9 7 8 5-8 5z"></path>
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <div class="workbench-grid">
+        <section
+          class="source-panel"
+          aria-label="Source-code editor"
+        >
+          <header class="panel-header">
+            <div class="panel-title">
+              <span class="panel-letter">
+                A
+              </span>
+
+              <strong>main.c</strong>
+
+              <span
+                class="editable-indicator"
+                title="This code is editable"
+              ></span>
+            </div>
+
+            <span
+              class="panel-information"
+              id="sourceInformation"
+            >
+              Cinder C
+            </span>
+          </header>
+
+          <div class="editor-container">
+            <div
+              class="line-number-gutter"
+              id="lineNumbers"
+              aria-hidden="true"
+            ></div>
+
+            <textarea
+              id="codeEditor"
+              aria-label="C source code"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              wrap="off"
+            ></textarea>
+
+            <div
+              class="source-error-marker"
+              id="sourceErrorMarker"
+              hidden
+              aria-hidden="true"
+            ></div>
+          </div>
+
+          <footer class="panel-footer editor-footer">
+            <div class="footer-status">
+              <span
+                class="footer-status-light"
+                id="footerEngineLight"
+              ></span>
+
+              <span id="footerEngineStatus">
+                Loading C engine
+              </span>
+            </div>
+
+            <div class="editor-settings">
+              <span>UTF-8</span>
+              <span>Spaces: 2</span>
+            </div>
+          </footer>
+        </section>
+
+        <section
+          class="result-panel-container"
+          aria-label="Compiler results"
+        >
+          <div
+            class="result-tabs"
+            role="tablist"
+            aria-label="Compiler result views"
+          >
+            <button
+              class="result-tab active"
+              id="outputTab"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="outputPanel"
+              data-panel="output"
+            >
+              Output
+
+              <span
+                class="tab-count"
+                id="outputCount"
+                hidden
+              ></span>
+            </button>
+
+            <button
+              class="result-tab"
+              id="tokensTab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="tokensPanel"
+              data-panel="tokens"
+            >
+              Tokens
+
+              <span
+                class="tab-count"
+                id="tokenCount"
+              >
+                0
+              </span>
+            </button>
+
+            <button
+              class="result-tab"
+              id="treeTab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="treePanel"
+              data-panel="tree"
+            >
+              Syntax tree
+            </button>
+
+            <button
+              class="result-tab"
+              id="instructionsTab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="instructionsPanel"
+              data-panel="instructions"
+            >
+              Instructions
+
+              <span
+                class="tab-count"
+                id="instructionCount"
+              >
+                0
+              </span>
+            </button>
+          </div>
+
+          <div class="result-content">
+            <section
+              class="compiler-panel active"
+              id="outputPanel"
+              role="tabpanel"
+              aria-labelledby="outputTab"
+              data-compiler-panel="output"
+            >
+              <div class="console-toolbar">
+                <div class="console-heading">
+                  <span class="console-prompt-symbol">
+                    &gt;_
+                  </span>
+
+                  <span>Program output</span>
+                </div>
+
+                <button
+                  class="copy-output-button"
+                  id="copyOutputButton"
+                  type="button"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <rect
+                      x="8"
+                      y="8"
+                      width="11"
+                      height="11"
+                      rx="2"
+                    ></rect>
+
+                    <path
+                      d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+                    ></path>
+                  </svg>
+
+                  <span>Copy</span>
+                </button>
+              </div>
+
+              <pre
+                class="program-console empty"
+                id="programConsole"
+                aria-live="polite"
+              ><span>Press “Run program” to compile and execute.</span></pre>
+
+              <div
+                class="compiler-diagnostic"
+                id="compilerDiagnostic"
+                role="alert"
+                hidden
+              >
+                <div
+                  class="diagnostic-icon"
+                  aria-hidden="true"
+                >
+                  !
+                </div>
+
+                <div class="diagnostic-content">
+                  <strong>Compiler error</strong>
+
+                  <p id="diagnosticMessage"></p>
+
+                  <button
+                    id="diagnosticSourceButton"
+                    type="button"
+                  >
+                    Show in source
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section
+              class="compiler-panel"
+              id="tokensPanel"
+              role="tabpanel"
+              aria-labelledby="tokensTab"
+              data-compiler-panel="tokens"
+              hidden
+            >
+              <div class="view-introduction">
+                <div>
+                  <div>
+                    <strong>Lexer output</strong>
+
+                    <p>
+                      Click a token to locate it in the source.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="token-grid"
+                id="tokenGrid"
+              >
+                <p class="empty-view-message">
+                  Run the program to generate tokens.
+                </p>
+              </div>
+            </section>
+
+            <section
+              class="compiler-panel"
+              id="treePanel"
+              role="tabpanel"
+              aria-labelledby="treeTab"
+              data-compiler-panel="tree"
+              hidden
+            >
+              <div class="view-introduction">
+                <div>
+                  <div>
+                    <strong>Abstract syntax tree</strong>
+
+                    <p>
+                      Explore how the parser understands the program.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="syntax-tree"
+                id="syntaxTree"
+              >
+                <p class="empty-view-message">
+                  Run the program to generate a syntax tree.
+                </p>
+              </div>
+            </section>
+
+            <section
+              class="compiler-panel"
+              id="instructionsPanel"
+              role="tabpanel"
+              aria-labelledby="instructionsTab"
+              data-compiler-panel="instructions"
+              hidden
+            >
+              <div class="view-introduction">
+                <div>
+                  <div>
+                    <strong>
+                      Generated instructions
+                    </strong>
+
+                    <p>
+                      Click an instruction to find its source expression.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="instruction-heading">
+                <span>Address</span>
+                <span>Operation</span>
+                <span>Operand / target</span>
+              </div>
+
+              <div
+                class="instruction-list"
+                id="instructionList"
+              >
+                <p class="empty-view-message">
+                  Run the program to generate instructions.
+                </p>
+              </div>
+            </section>
+          </div>
+
+          <footer
+            class="panel-footer execution-footer"
+            id="executionFooter"
+          >
+            <div class="execution-state">
+              <span
+                class="execution-state-light"
+                id="executionStateLight"
+              ></span>
+
+              <strong id="executionStateText">
+                Ready
+              </strong>
+            </div>
+
+            <span id="executionInstructionStat">
+              0 instructions
+            </span>
+
+            <span id="executionStepStat">
+              0 steps
+            </span>
+
+            <span id="executionExitStat">
+              exit —
+            </span>
+          </footer>
+        </section>
+      </div>
+
+      <div
+        class="compilation-progress"
+        id="compilationProgress"
+        aria-hidden="true"
+      >
+        <span class="progress-stage">
+          Source
+        </span>
+
+        <span class="progress-line">
+          <i></i>
+        </span>
+
+        <span class="progress-stage">
+          Tokens
+        </span>
+
+        <span class="progress-line">
+          <i></i>
+        </span>
+
+        <span class="progress-stage">
+          Tree
+        </span>
+
+        <span class="progress-line">
+          <i></i>
+        </span>
+
+        <span class="progress-stage">
+          Instructions
+        </span>
+
+        <span class="progress-line">
+          <i></i>
+        </span>
+
+        <span class="progress-stage">
+          Execute
+        </span>
+      </div>
+    </section>
+
+    <section
+      class="compiler-facts"
+      aria-label="Compiler information"
+    >
+      <div class="compiler-fact">
+        <span>Engine</span>
+        <strong>Written in C</strong>
+      </div>
+
+      <div class="compiler-fact">
+        <span>Runtime</span>
+        <strong>WebAssembly</strong>
+      </div>
+
+      <div class="compiler-fact">
+        <span>Execution</span>
+        <strong>Inside your browser</strong>
+      </div>
+
+      <div class="compiler-fact">
+        <span>Source limit</span>
+        <strong>32 KB</strong>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a
+      class="footer-brand"
+      href="#compiler"
+      aria-label="Return to Cinder compiler"
+    >
+      <span
+        class="brand-symbol small"
+        aria-hidden="true"
+      >
+        <span class="brand-orbit"></span>
+        <span class="brand-ember"></span>
+      </span>
+
+      <strong>CINDER</strong>
+    </a>
+
+    <p>
+      A C compiler built to make compilers less mysterious.
+    </p>
+
+    <button
+      class="footer-contact-button"
+      id="footerContactButton"
+      type="button"
+    >
+      Contact the developer
+    </button>
+  </footer>
+
+  <div
+    class="toast"
+    id="toast"
+    role="status"
+    aria-live="polite"
+  ></div>
+
+  <noscript>
+    <div class="noscript-message">
+      Cinder requires JavaScript to connect the interface
+      to its WebAssembly compiler.
+    </div>
+  </noscript>
+
+  <script
+    type="module"
+    src="app.js"
+  ></script>
+</body>
+</html>
