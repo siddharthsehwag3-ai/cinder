@@ -1,33 +1,77 @@
 $ErrorActionPreference = "Stop"
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$compilerSource = Join-Path $projectRoot "compiler\cinder.c"
-$buildDirectory = Join-Path $projectRoot "build"
-$webDirectory = Join-Path $projectRoot "web"
+$projectRoot = (
+    Resolve-Path (
+        Join-Path $PSScriptRoot ".."
+    )
+).Path
 
-$nativeOutput = Join-Path $buildDirectory "cinder.exe"
-$wasmOutput = Join-Path $webDirectory "cinder.wasm"
+$compilerSource = Join-Path `
+    $projectRoot `
+    "compiler\cinder.c"
 
-New-Item -ItemType Directory -Force -Path $buildDirectory | Out-Null
-New-Item -ItemType Directory -Force -Path $webDirectory | Out-Null
+$buildDirectory = Join-Path `
+    $projectRoot `
+    "build"
+
+$webDirectory = Join-Path `
+    $projectRoot `
+    "web"
+
+$nativeOutput = Join-Path `
+    $buildDirectory `
+    "cinder.exe"
+
+$wasmOutput = Join-Path `
+    $webDirectory `
+    "cinder.wasm"
+
+New-Item `
+    -ItemType Directory `
+    -Force `
+    -Path $buildDirectory |
+    Out-Null
+
+New-Item `
+    -ItemType Directory `
+    -Force `
+    -Path $webDirectory |
+    Out-Null
 
 Write-Host ""
-Write-Host "Building Cinder..." -ForegroundColor Cyan
+Write-Host `
+    "Building Cinder..." `
+    -ForegroundColor Cyan
+
 Write-Host ""
 
-$gccCommand = Get-Command gcc -ErrorAction SilentlyContinue
+$gccCommand =
+    Get-Command `
+        gcc `
+        -ErrorAction SilentlyContinue
 
 if (-not $gccCommand) {
-    throw "GCC was not found. Add GCC to PATH before building Cinder."
+    throw (
+        "GCC was not found. " +
+        "Add GCC to PATH before building Cinder."
+    )
 }
 
-$zigCommand = Get-Command zig -ErrorAction SilentlyContinue
+$zigCommand =
+    Get-Command `
+        zig `
+        -ErrorAction SilentlyContinue
 
 if (-not $zigCommand) {
-    throw "Zig was not found. Install Zig and reopen the terminal."
+    throw (
+        "Zig was not found. " +
+        "Install Zig and reopen the terminal."
+    )
 }
 
-Write-Host "[1/2] Building native compiler..." -ForegroundColor Yellow
+Write-Host `
+    "[1/2] Building native compiler..." `
+    -ForegroundColor Yellow
 
 & $gccCommand.Source `
     $compilerSource `
@@ -39,15 +83,28 @@ Write-Host "[1/2] Building native compiler..." -ForegroundColor Yellow
     -o $nativeOutput
 
 if ($LASTEXITCODE -ne 0) {
-    throw "The native Cinder build failed."
+    throw (
+        "The native Cinder build failed."
+    )
 }
 
-Write-Host "      Created build\cinder.exe" -ForegroundColor Green
+Write-Host `
+    "      Created build\cinder.exe" `
+    -ForegroundColor Green
 
-$env:ZIG_GLOBAL_CACHE_DIR = Join-Path $buildDirectory "zig-global-cache"
-$env:ZIG_LOCAL_CACHE_DIR = Join-Path $buildDirectory "zig-local-cache"
+$env:ZIG_GLOBAL_CACHE_DIR =
+    Join-Path `
+        $buildDirectory `
+        "zig-global-cache"
 
-Write-Host "[2/2] Building browser WebAssembly..." -ForegroundColor Yellow
+$env:ZIG_LOCAL_CACHE_DIR =
+    Join-Path `
+        $buildDirectory `
+        "zig-local-cache"
+
+Write-Host `
+    "[2/2] Building browser WebAssembly..." `
+    -ForegroundColor Yellow
 
 & $zigCommand.Source `
     cc `
@@ -61,20 +118,34 @@ Write-Host "[2/2] Building browser WebAssembly..." -ForegroundColor Yellow
     "-Wl,--export=report_len" `
     "-Wl,--export=compile" `
     "-Wl,--export-memory" `
-    "-Wl,--initial-memory=7340032" `
-    "-Wl,--max-memory=7340032" `
+    "-Wl,--initial-memory=16777216" `
+    "-Wl,--max-memory=16777216" `
     -o $wasmOutput
 
 if ($LASTEXITCODE -ne 0) {
-    throw "The WebAssembly build failed."
+    throw (
+        "The WebAssembly build failed."
+    )
 }
 
-$nativeSize = (Get-Item -LiteralPath $nativeOutput).Length
-$wasmSize = (Get-Item -LiteralPath $wasmOutput).Length
+$nativeSize = (
+    Get-Item -LiteralPath $nativeOutput
+).Length
 
-Write-Host "      Created web\cinder.wasm" -ForegroundColor Green
+$wasmSize = (
+    Get-Item -LiteralPath $wasmOutput
+).Length
+
+Write-Host `
+    "      Created web\cinder.wasm" `
+    -ForegroundColor Green
+
 Write-Host ""
-Write-Host "Cinder built successfully." -ForegroundColor Cyan
+Write-Host `
+    "Cinder built successfully." `
+    -ForegroundColor Cyan
+
 Write-Host "Native size: $nativeSize bytes"
 Write-Host "Wasm size:   $wasmSize bytes"
+Write-Host "Wasm memory: 16777216 bytes"
 Write-Host ""

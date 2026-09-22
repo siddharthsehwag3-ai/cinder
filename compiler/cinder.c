@@ -10,18 +10,18 @@
 #include <stdio.h>
 #endif
 
-#define MAX_SOURCE      32768
-#define MAX_TOKENS      8192
-#define MAX_NODES       8192
-#define MAX_CODE        16384
-#define MAX_FUNCTIONS   128
-#define MAX_SYMBOLS     2048
-#define MAX_LOCALS      256
-#define MAX_STACK       4096
-#define MAX_CALL_DEPTH  128
-#define MAX_STEPS       200000
-#define MAX_OUTPUT      8192
-#define MAX_REPORT      3000000
+#define MAX_SOURCE      65536
+#define MAX_TOKENS      16384
+#define MAX_NODES       16384
+#define MAX_CODE        32768
+#define MAX_FUNCTIONS   256
+#define MAX_SYMBOLS     4096
+#define MAX_LOCALS      512
+#define MAX_STACK       8192
+#define MAX_CALL_DEPTH  256
+#define MAX_STEPS       1000000
+#define MAX_OUTPUT      16384
+#define MAX_REPORT      6000000
 
 typedef struct {
     int kind;
@@ -403,7 +403,6 @@ static int escaped_character(
             return 0;
     }
 }
-
 static void lex_source(void)
 {
     int position = 0;
@@ -532,7 +531,8 @@ static void lex_source(void)
 
             continue;
         }
-                if (character == '\'') {
+
+        if (character == '\'') {
             int value;
 
             if (
@@ -1437,7 +1437,6 @@ static int parse_expression(void)
 
     return left;
 }
-
 static int parse_declaration(void)
 {
     int declaration_token =
@@ -1887,7 +1886,6 @@ static int parse_statement(void)
     nesting_depth--;
     return statement;
 }
-
 static void parse_program(void)
 {
     while (
@@ -2051,6 +2049,7 @@ static void parse_program(void)
             parse_block(0);
     }
 }
+
 static int emit(
     int opcode,
     int argument,
@@ -2168,7 +2167,6 @@ static int binary_opcode(
             return OP_HALT;
     }
 }
-
 static void compile_node(int node_index)
 {
     Node node;
@@ -2685,8 +2683,7 @@ static void compile_node(int node_index)
             ].argument =
                 instruction_count;
             break;
-
-        case NODE_DO_WHILE:
+                    case NODE_DO_WHILE:
         {
             int saved_loop_depth =
                 ++loop_depth;
@@ -2860,8 +2857,7 @@ static void compile_node(int node_index)
             loop_depth--;
             break;
         }
-
-        case NODE_BREAK:
+                case NODE_BREAK:
             patch = emit(
                 OP_JUMP,
                 0,
@@ -2896,7 +2892,7 @@ static void output_character(
 {
     if (output_position >= MAX_OUTPUT - 1) {
         fail(
-            "Program output exceeded the 8 KB limit.",
+            "Program output exceeded the 16 KB limit.",
             token_index
         );
 
@@ -3066,7 +3062,7 @@ static void execute_program(
                 ].node;
 
             fail(
-                "Execution stopped after 200,000 instructions. "
+                "Execution stopped after 1,000,000 instructions. "
                 "The program may contain an infinite loop.",
                 current_node
                     ? nodes[current_node].token
@@ -3118,8 +3114,7 @@ static void execute_program(
             case OP_DROP:
                 pop_value(token_index);
                 break;
-
-            case OP_ADD:
+                            case OP_ADD:
             case OP_SUBTRACT:
             case OP_MULTIPLY:
             case OP_DIVIDE:
@@ -3356,7 +3351,8 @@ static void execute_program(
                     token_index
                 );
                 break;
-                            case OP_JUMP:
+
+            case OP_JUMP:
                 program_counter =
                     instruction.argument;
                 break;
@@ -3442,8 +3438,7 @@ static void execute_program(
                     token_index
                 );
                 break;
-
-            case OP_PRINT:
+                            case OP_PRINT:
             {
                 int argument_base =
                     stack_pointer -
@@ -3686,7 +3681,6 @@ static void execute_program(
         }
     }
 }
-
 static void report_character(
     char character
 )
@@ -3736,6 +3730,7 @@ static void report_integer(int value)
 
     while (count) {
         count--;
+
         report_character(
             digits[count]
         );
@@ -4045,8 +4040,7 @@ static void build_report(void)
 
         report_text("]}");
     }
-
-    report_text("],\"functions\":[");
+        report_text("],\"functions\":[");
 
     for (
         index = 0;
@@ -4164,7 +4158,6 @@ int report_len(void)
 {
     return report_position;
 }
-
 int compile(void)
 {
     int index;
@@ -4321,7 +4314,7 @@ int main(
     if (fgetc(input) != EOF) {
         fprintf(
             stderr,
-            "Cinder: source exceeds the 32 KB limit.\n"
+            "Cinder: source exceeds the 64 KB limit.\n"
         );
 
         if (input != stdin) {

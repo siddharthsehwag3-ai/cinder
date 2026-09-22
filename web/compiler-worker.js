@@ -1,20 +1,20 @@
-/*
- * Cinder compiler worker
- *
- * Compilation happens outside the browser's main interface
- * thread. If a program takes too long, app.js can terminate
- * this worker without freezing the editor or page.
- */
+const maximumSourceBytes =
+  65536;
 
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
+const maximumReportBytes =
+  6000000;
+
+const textEncoder =
+  new TextEncoder();
+
+const textDecoder =
+  new TextDecoder();
 
 let wasmExports = null;
 
 async function instantiateCompiler() {
-  const response = await fetch(
-    "cinder.wasm"
-  );
+  const response =
+    await fetch("cinder.wasm");
 
   if (!response.ok) {
     throw new Error(
@@ -52,7 +52,9 @@ async function instantiateCompiler() {
     "compile"
   ];
 
-  for (const exportName of requiredExports) {
+  for (
+    const exportName of requiredExports
+  ) {
     if (!exports[exportName]) {
       throw new Error(
         `Missing WebAssembly export: ${exportName}`
@@ -61,6 +63,22 @@ async function instantiateCompiler() {
   }
 
   return exports;
+}
+
+function createFailureReport(message) {
+  return {
+    ok: false,
+    error: message,
+    errorStart: 0,
+    errorEnd: 0,
+    result: 0,
+    steps: 0,
+    stdout: "",
+    tokens: [],
+    nodes: [],
+    functions: [],
+    instructions: []
+  };
 }
 
 function compileSource(sourceCode) {
@@ -73,21 +91,13 @@ function compileSource(sourceCode) {
   const sourceBytes =
     textEncoder.encode(sourceCode);
 
-  if (sourceBytes.length >= 32768) {
-    return {
-      ok: false,
-      error:
-        "Source exceeds Cinder's 32 KB limit.",
-      errorStart: 0,
-      errorEnd: 0,
-      result: 0,
-      steps: 0,
-      stdout: "",
-      tokens: [],
-      nodes: [],
-      functions: [],
-      instructions: []
-    };
+  if (
+    sourceBytes.length >=
+    maximumSourceBytes
+  ) {
+    return createFailureReport(
+      "Source exceeds Cinder's 64 KB limit."
+    );
   }
 
   const inputPointer =
@@ -98,13 +108,26 @@ function compileSource(sourceCode) {
       wasmExports.memory.buffer
     );
 
+  if (
+    inputPointer < 0 ||
+    inputPointer +
+        sourceBytes.length +
+        1 >
+      memory.length
+  ) {
+    throw new Error(
+      "The source does not fit in WebAssembly memory."
+    );
+  }
+
   memory.set(
     sourceBytes,
     inputPointer
   );
 
   memory[
-    inputPointer + sourceBytes.length
+    inputPointer +
+    sourceBytes.length
   ] = 0;
 
   wasmExports.compile();
@@ -116,11 +139,17 @@ function compileSource(sourceCode) {
     wasmExports.report_len();
 
   if (
+    reportPointer < 0 ||
     reportLength < 0 ||
-    reportLength > 3000000
+    reportLength >
+      maximumReportBytes ||
+    reportPointer +
+        reportLength >
+      wasmExports.memory.buffer
+        .byteLength
   ) {
     throw new Error(
-      "The compiler returned an invalid report length."
+      "The compiler returned an invalid report."
     );
   }
 
@@ -132,7 +161,9 @@ function compileSource(sourceCode) {
     );
 
   const reportText =
-    textDecoder.decode(reportBytes);
+    textDecoder.decode(
+      reportBytes
+    );
 
   return JSON.parse(reportText);
 }
@@ -159,7 +190,8 @@ async function startWorker() {
 self.addEventListener(
   "message",
   (event) => {
-    const message = event.data;
+    const message =
+      event.data;
 
     if (
       !message ||
@@ -171,18 +203,22 @@ self.addEventListener(
     try {
       const report =
         compileSource(
-          String(message.source || "")
+          String(
+            message.source || ""
+          )
         );
 
       self.postMessage({
         type: "result",
-        requestId: message.requestId,
+        requestId:
+          message.requestId,
         report
       });
     } catch (error) {
       self.postMessage({
         type: "compile-error",
-        requestId: message.requestId,
+        requestId:
+          message.requestId,
         message:
           error instanceof Error
             ? error.message
