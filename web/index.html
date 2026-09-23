@@ -245,8 +245,20 @@
               FizzBuzz challenge
             </option>
 
-            <option value="controlFlow">
+                        <option value="controlFlow">
               Loops and control flow
+            </option>
+
+            <option value="memory">
+              Arrays, pointers and strings
+            </option>
+
+            <option value="structures">
+              Structures, enums and switch
+            </option>
+
+            <option value="standardInput">
+              Read standard input
             </option>
 
             <option value="error">
@@ -354,7 +366,60 @@
               aria-hidden="true"
             ></div>
           </div>
+          <section
+            class="stdin-panel"
+            aria-labelledby="stdinHeading"
+          >
+            <header class="stdin-header">
+              <div class="stdin-title">
+                <span
+                  class="stdin-prompt"
+                  aria-hidden="true"
+                >
+                  &gt;_
+                </span>
 
+                <div>
+                  <strong id="stdinHeading">
+                    Program input
+                  </strong>
+
+                  <span>
+                    Read with getchar()
+                  </span>
+                </div>
+              </div>
+
+              <div class="stdin-actions">
+                <span
+                  class="stdin-size"
+                  id="stdinSize"
+                  aria-live="polite"
+                >
+                  0 B / 64 KB
+                </span>
+
+                <button
+                  class="stdin-clear-button"
+                  id="clearStdinButton"
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+            </header>
+
+            <textarea
+              class="stdin-editor"
+              id="stdinEditor"
+              aria-label="Standard input supplied to the C program"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Optional input for getchar()"
+            ></textarea>
+          </section>
           <footer class="panel-footer editor-footer">
             <div class="footer-status">
               <span
@@ -721,8 +786,8 @@
       </div>
 
       <div class="compiler-fact">
-        <span>Source limit</span>
-        <strong>32 KB</strong>
+                <span>Source limit</span>
+        <strong>64 KB</strong>
       </div>
     </section>
   </main>

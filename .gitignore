@@ -1,21 +1,68 @@
+# Native build output
 build/
-
 *.exe
+*.dll
 *.o
 *.obj
 *.pdb
+*.ilk
+
+# Compiler and linker artifacts
+*.a
+*.lib
+*.exp
+*.map
 *.wasm.map
 
+# Temporary compiler copies
+compiler/*-before-*.c
+compiler/*-next.c
+compiler/*.bak
+compiler/*.backup
+
+# Zig caches
 zig-cache/
 .zig-cache/
 
-.vscode/
-.idea/
+# JavaScript dependencies
+node_modules/
 
+# Test and coverage output
+coverage/
+test-results/
+*.gcda
+*.gcno
+*.gcov
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
 
-node_modules/
+# Editors
+.vscode/
+.idea/
 
+# Environment and secrets
 .env
 .env.*
+!.env.example
+
+# Vercel local state
+.vercel/
+
+# Local server files
+.python-version
+__pycache__/
+*.pyc
+
+# PowerShell history or local profiles
+ConsoleHost_history.txt

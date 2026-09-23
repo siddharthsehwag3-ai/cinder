@@ -78,6 +78,7 @@ Write-Host `
     -std=c11 `
     -Wall `
     -Wextra `
+    -Wpedantic `
     -Werror `
     -O2 `
     -o $nativeOutput
@@ -112,14 +113,22 @@ Write-Host `
     -target wasm32-freestanding `
     -Os `
     -nostdlib `
+    -Wall `
+    -Wextra `
+    -Wpedantic `
+    -Werror `
     "-Wl,--no-entry" `
     "-Wl,--export=input_ptr" `
+    "-Wl,--export=stdin_ptr" `
+    "-Wl,--export=input_capacity" `
+    "-Wl,--export=stdin_capacity" `
+    "-Wl,--export=set_stdin_len" `
     "-Wl,--export=report_ptr" `
     "-Wl,--export=report_len" `
     "-Wl,--export=compile" `
     "-Wl,--export-memory" `
-    "-Wl,--initial-memory=16777216" `
-    "-Wl,--max-memory=16777216" `
+    "-Wl,--initial-memory=33554432" `
+    "-Wl,--max-memory=33554432" `
     -o $wasmOutput
 
 if ($LASTEXITCODE -ne 0) {
@@ -147,5 +156,5 @@ Write-Host `
 
 Write-Host "Native size: $nativeSize bytes"
 Write-Host "Wasm size:   $wasmSize bytes"
-Write-Host "Wasm memory: 16777216 bytes"
+Write-Host "Wasm memory: 33554432 bytes"
 Write-Host ""

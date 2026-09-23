@@ -1,6 +1,9 @@
 const maximumSourceBytes =
   65536;
 
+const maximumStdinBytes =
+  65536;
+
 const maximumReportBytes =
   6000000;
 
@@ -47,6 +50,10 @@ async function instantiateCompiler() {
   const requiredExports = [
     "memory",
     "input_ptr",
+    "stdin_ptr",
+    "input_capacity",
+    "stdin_capacity",
+    "set_stdin_len",
     "report_ptr",
     "report_len",
     "compile"
@@ -74,14 +81,79 @@ function createFailureReport(message) {
     result: 0,
     steps: 0,
     stdout: "",
+    diagnostics: [
+      {
+        kind: "error",
+        message,
+        token: 0,
+        start: 0,
+        end: 0,
+        line: 1,
+        column: 1
+      }
+    ],
     tokens: [],
     nodes: [],
+    types: [],
     functions: [],
     instructions: []
   };
 }
 
-function compileSource(sourceCode) {
+function writeTextToMemory({
+  text,
+  pointer,
+  capacity,
+  label
+}) {
+  const bytes =
+    textEncoder.encode(text);
+
+  if (
+    bytes.length >=
+    capacity
+  ) {
+    throw new Error(
+      `${label} exceeds Cinder's ${Math.floor(
+        capacity / 1024
+      )} KB limit.`
+    );
+  }
+
+  const memory =
+    new Uint8Array(
+      wasmExports.memory.buffer
+    );
+
+  if (
+    pointer < 0 ||
+    pointer +
+        bytes.length +
+        1 >
+      memory.length
+  ) {
+    throw new Error(
+      `${label} does not fit in WebAssembly memory.`
+    );
+  }
+
+  memory.set(
+    bytes,
+    pointer
+  );
+
+  memory[
+    pointer +
+    bytes.length
+  ] = 0;
+
+  return bytes.length;
+}
+
+function compileSource(
+  sourceCode,
+  stdinText
+) {
   if (!wasmExports) {
     throw new Error(
       "The compiler engine is not ready."
@@ -89,7 +161,9 @@ function compileSource(sourceCode) {
   }
 
   const sourceBytes =
-    textEncoder.encode(sourceCode);
+    textEncoder.encode(
+      sourceCode
+    );
 
   if (
     sourceBytes.length >=
@@ -100,35 +174,69 @@ function compileSource(sourceCode) {
     );
   }
 
-  const inputPointer =
-    wasmExports.input_ptr();
-
-  const memory =
-    new Uint8Array(
-      wasmExports.memory.buffer
+  const stdinBytes =
+    textEncoder.encode(
+      stdinText
     );
 
   if (
-    inputPointer < 0 ||
-    inputPointer +
-        sourceBytes.length +
-        1 >
-      memory.length
+    stdinBytes.length >=
+    maximumStdinBytes
   ) {
-    throw new Error(
-      "The source does not fit in WebAssembly memory."
+    return createFailureReport(
+      "Program input exceeds Cinder's 64 KB limit."
     );
   }
 
-  memory.set(
-    sourceBytes,
-    inputPointer
-  );
+  const inputCapacity =
+    wasmExports.input_capacity();
 
-  memory[
-    inputPointer +
+  const stdinCapacity =
+    wasmExports.stdin_capacity();
+
+  const inputPointer =
+    wasmExports.input_ptr();
+
+  const stdinPointer =
+    wasmExports.stdin_ptr();
+
+  const writtenSourceLength =
+    writeTextToMemory({
+      text: sourceCode,
+      pointer: inputPointer,
+      capacity: inputCapacity,
+      label: "Source"
+    });
+
+  if (
+    writtenSourceLength !==
     sourceBytes.length
-  ] = 0;
+  ) {
+    throw new Error(
+      "Source encoding length mismatch."
+    );
+  }
+
+  const writtenStdinLength =
+    writeTextToMemory({
+      text: stdinText,
+      pointer: stdinPointer,
+      capacity: stdinCapacity,
+      label: "Program input"
+    });
+
+  if (
+    writtenStdinLength !==
+    stdinBytes.length
+  ) {
+    throw new Error(
+      "Program input encoding length mismatch."
+    );
+  }
+
+  wasmExports.set_stdin_len(
+    writtenStdinLength
+  );
 
   wasmExports.compile();
 
@@ -165,7 +273,9 @@ function compileSource(sourceCode) {
       reportBytes
     );
 
-  return JSON.parse(reportText);
+  return JSON.parse(
+    reportText
+  );
 }
 
 async function startWorker() {
@@ -205,6 +315,9 @@ self.addEventListener(
         compileSource(
           String(
             message.source || ""
+          ),
+          String(
+            message.stdin || ""
           )
         );
 

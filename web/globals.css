@@ -2280,3 +2280,333 @@ a:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+/* Standard-input panel */
+
+.stdin-panel {
+  position: relative;
+
+  display: grid;
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+
+  min-height: 6.6rem;
+  overflow: hidden;
+
+  border-top:
+    1px solid
+    var(--border-soft);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(12, 16, 23, 0.96),
+      rgba(8, 11, 16, 0.98)
+    );
+}
+
+.stdin-panel::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 1px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(93, 228, 244, 0.3),
+      transparent
+    );
+
+  content: "";
+  pointer-events: none;
+}
+
+.stdin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+
+  min-height: 2.45rem;
+  padding:
+    0.45rem
+    0.85rem
+    0.4rem
+    1rem;
+
+  border-bottom:
+    1px solid
+    rgba(39, 48, 64, 0.7);
+}
+
+.stdin-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+
+  min-width: 0;
+}
+
+.stdin-prompt {
+  color: var(--cyan);
+
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+
+  text-shadow:
+    0 0 0.7rem
+    rgba(93, 228, 244, 0.35);
+}
+
+.stdin-title > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+
+  min-width: 0;
+}
+
+.stdin-title strong {
+  color: var(--text-soft);
+
+  font-family: var(--font-mono);
+  font-size: 0.67rem;
+  font-weight: 500;
+}
+
+.stdin-title span:last-child {
+  color: var(--muted-dark);
+
+  font-family: var(--font-mono);
+  font-size: 0.57rem;
+}
+
+.stdin-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+
+  flex-shrink: 0;
+}
+
+.stdin-size {
+  color: var(--muted-dark);
+
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+
+  transition:
+    color 180ms ease,
+    text-shadow 180ms ease;
+}
+
+.stdin-size.warning {
+  color: var(--amber);
+
+  text-shadow:
+    0 0 0.7rem
+    rgba(255, 180, 84, 0.25);
+}
+
+.stdin-size.error {
+  color: var(--red);
+
+  text-shadow:
+    0 0 0.7rem
+    rgba(255, 103, 119, 0.3);
+}
+
+.stdin-clear-button {
+  min-height: 1.65rem;
+  padding-inline: 0.65rem;
+
+  border:
+    1px solid
+    var(--border);
+  border-radius: 0.35rem;
+
+  background:
+    rgba(15, 20, 29, 0.78);
+  color: var(--muted);
+
+  font-family: var(--font-mono);
+  font-size: 0.57rem;
+
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.stdin-clear-button:hover {
+  border-color:
+    rgba(93, 228, 244, 0.36);
+
+  background:
+    rgba(93, 228, 244, 0.07);
+  color: var(--cyan);
+}
+
+.stdin-clear-button:active {
+  transform: translateY(1px);
+}
+
+.stdin-clear-button:focus-visible {
+  outline:
+    2px solid
+    rgba(93, 228, 244, 0.55);
+  outline-offset: 2px;
+}
+
+.stdin-editor {
+  width: 100%;
+  min-height: 4.15rem;
+  padding:
+    0.8rem
+    1rem;
+
+  resize: vertical;
+  overflow: auto;
+
+  border: 0;
+  outline: 0;
+
+  background:
+    rgba(6, 9, 14, 0.72);
+  color: #cbd6e2;
+
+  caret-color: var(--cyan);
+
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.55;
+
+  transition:
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.stdin-editor::placeholder {
+  color: #3f4a5c;
+}
+
+.stdin-editor:focus {
+  background:
+    rgba(7, 11, 17, 0.94);
+
+  box-shadow:
+    inset 0 0 0 1px
+    rgba(93, 228, 244, 0.12);
+}
+
+.stdin-editor::-webkit-scrollbar {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+
+.stdin-editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.stdin-editor::-webkit-scrollbar-thumb {
+  border:
+    0.15rem solid
+    transparent;
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      var(--border-bright),
+      var(--border-bright)
+    )
+    padding-box;
+}
+
+/*
+ * The input panel uses part of the original editor height.
+ * This keeps the complete workbench close to its existing
+ * vertical size.
+ */
+
+.source-panel .editor-container {
+  height: 26.2rem;
+}
+
+@media (max-width: 68rem) {
+  .source-panel .editor-container {
+    height: 25rem;
+    min-height: 25rem;
+  }
+
+  .stdin-panel {
+    min-height: 7rem;
+  }
+}
+
+@media (max-width: 43rem) {
+  .source-panel .editor-container {
+    height: 21rem;
+    min-height: 21rem;
+  }
+
+  .stdin-header {
+    gap: 0.6rem;
+
+    padding-right: 0.7rem;
+    padding-left: 0.8rem;
+  }
+
+  .stdin-title > div {
+    display: block;
+  }
+
+  .stdin-title span:last-child {
+    display: none;
+  }
+
+  .stdin-actions {
+    gap: 0.45rem;
+  }
+
+  .stdin-size {
+    font-size: 0.52rem;
+  }
+
+  .stdin-clear-button {
+    padding-inline: 0.55rem;
+  }
+
+  .stdin-editor {
+    min-height: 4.5rem;
+
+    padding-right: 0.8rem;
+    padding-left: 0.8rem;
+
+    font-size: 0.67rem;
+  }
+}
+
+@media (max-width: 27rem) {
+  .stdin-size {
+    max-width: 4.8rem;
+
+    text-align: right;
+  }
+
+  .stdin-prompt {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stdin-size,
+  .stdin-clear-button,
+  .stdin-editor {
+    transition: none;
+  }
+}
