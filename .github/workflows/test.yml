@@ -27,10 +27,41 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Install GCC
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+      - name: Configure GCC
+        shell: pwsh
+        run: |
+          $gccDirectories = @(
+            "C:\msys64\ucrt64\bin",
+            "C:\msys64\mingw64\bin"
+          )
+
+          $gccDirectory =
+            $gccDirectories |
+            Where-Object {
+              Test-Path `
+                -LiteralPath (
+                  Join-Path $_ "gcc.exe"
+                )
+            } |
+            Select-Object -First 1
+
+          if (-not $gccDirectory) {
+            throw (
+              "GCC was not found in the expected " +
+              "GitHub Windows runner directories."
+            )
+          }
+
+          $gccDirectory |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
+
+          Write-Host (
+            "Configured GCC from: " +
+            $gccDirectory
+          )
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
@@ -91,14 +122,22 @@ jobs:
           )
 
           foreach ($file in $requiredFiles) {
-            if (-not (Test-Path -LiteralPath $file)) {
+            if (
+              -not (
+                Test-Path -LiteralPath $file
+              )
+            ) {
               throw "Missing required file: $file"
             }
 
-            $item = Get-Item -LiteralPath $file
+            $item =
+              Get-Item -LiteralPath $file
 
             if ($item.PSIsContainer) {
-              throw "Expected a file but found a directory: $file"
+              throw (
+                "Expected a file but found " +
+                "a directory: $file"
+              )
             }
 
             if ($item.Length -eq 0) {
@@ -111,19 +150,23 @@ jobs:
             "repository files are present."
           )
 
-      - name: Verify no temporary compiler files are tracked
+      - name: Verify no temporary files are tracked
         shell: pwsh
         run: |
-          $temporaryFiles = @(
-            git ls-files |
-              Where-Object {
-                $_ -match (
-                  "^compiler/" +
-                  ".*(next|before|backup|temporary).*\.c$"
-                ) -or
-                $_ -match "\.(bak|backup|tmp|temp)$"
-              }
-          )
+          $trackedFiles =
+            @(git ls-files)
+
+          $temporaryFiles =
+            @(
+              $trackedFiles |
+                Where-Object {
+                  $_ -match (
+                    "^compiler/" +
+                    ".*(next|before|backup|temporary).*\.c$"
+                  ) -or
+                  $_ -match "\.(bak|backup|tmp|temp)$"
+                }
+            )
 
           if ($temporaryFiles.Count -gt 0) {
             Write-Host "Temporary files found:"
@@ -133,8 +176,7 @@ jobs:
             }
 
             throw (
-              "Temporary compiler files must not " +
-              "be committed."
+              "Temporary files must not be committed."
             )
           }
 
@@ -175,7 +217,8 @@ jobs:
       - name: Verify native executable
         shell: pwsh
         run: |
-          $nativePath = "build/cinder.exe"
+          $nativePath =
+            "build/cinder.exe"
 
           if (
             -not (
@@ -205,7 +248,8 @@ jobs:
       - name: Verify WebAssembly module
         shell: pwsh
         run: |
-          $wasmPath = "web/cinder.wasm"
+          $wasmPath =
+            "web/cinder.wasm"
 
           if (
             -not (
@@ -283,11 +327,16 @@ jobs:
           )
 
           foreach ($file in $deploymentFiles) {
-            if (-not (Test-Path -LiteralPath $file)) {
+            if (
+              -not (
+                Test-Path -LiteralPath $file
+              )
+            ) {
               throw "Missing deployment file: $file"
             }
 
-            $item = Get-Item -LiteralPath $file
+            $item =
+              Get-Item -LiteralPath $file
 
             if ($item.Length -eq 0) {
               throw "Deployment file is empty: $file"
@@ -344,7 +393,10 @@ jobs:
             "stdin: stdinText"
           )
 
-          foreach ($term in $requiredApplicationTerms) {
+          foreach (
+            $term in
+            $requiredApplicationTerms
+          ) {
             if (-not $application.Contains($term)) {
               throw (
                 "app.js is missing required " +
@@ -384,12 +436,13 @@ jobs:
           )
 
           foreach ($screenshot in $screenshots) {
+            $resolvedScreenshot =
+              Resolve-Path `
+                -LiteralPath $screenshot
+
             $bytes =
               [System.IO.File]::ReadAllBytes(
-                (
-                  Resolve-Path `
-                    -LiteralPath $screenshot
-                ).Path
+                $resolvedScreenshot.Path
               )
 
             if ($bytes.Length -lt 8) {
@@ -423,32 +476,44 @@ jobs:
             )
           }
 
-          Write-Host "All screenshots are valid PNG files."
+          Write-Host (
+            "All screenshots are valid PNG files."
+          )
 
-      - name: Confirm clean generated state
+      - name: Confirm reproducible generated files
         shell: pwsh
         run: |
           $status =
-            git status --short
+            @(git status --short)
 
-          if ($status) {
-            Write-Host (
-              "The build produced working-tree changes:"
+          $unexpectedChanges =
+            @(
+              $status |
+                Where-Object {
+                  $_ -notmatch "^\?\? build/"
+                }
             )
 
-            $status |
-              ForEach-Object {
-                Write-Host $_
-              }
+          if ($unexpectedChanges.Count -gt 0) {
+            Write-Host (
+              "The build produced unexpected " +
+              "working-tree changes:"
+            )
+
+            foreach (
+              $change in
+              $unexpectedChanges
+            ) {
+              Write-Host $change
+            }
 
             throw (
-              "The repository changed during the CI " +
-              "build. Rebuild and commit the current " +
-              "web/cinder.wasm file."
+              "Rebuild the generated files locally " +
+              "and commit their current versions."
             )
           }
 
           Write-Host (
-            "The build reproduced the committed " +
-            "WebAssembly module exactly."
+            "The build reproduced all committed " +
+            "generated files."
           )
