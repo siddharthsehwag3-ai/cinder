@@ -1,19 +1,12 @@
 # Cinder Language Guide
 
-Cinder implements a focused subset of C for learning compiler construction. It is not a complete ISO C compiler.
+Cinder implements an educational subset of C. It supports enough of the language to demonstrate lexical analysis, parsing, type checking, memory layout, bytecode generation, and bounded execution.
+
+Cinder is not a complete ISO C compiler. Programs that depend on the preprocessor, the complete standard library, floating-point arithmetic, multiple source files, or complete ISO C conversion rules should use GCC or Clang.
 
 ## Program entry point
 
-Every program must define `main` without parameters.
-
-```c
-int main(void)
-{
-    return 0;
-}
-```
-
-This form also works:
+Every executable program must define `main`.
 
 ```c
 int main()
@@ -22,19 +15,89 @@ int main()
 }
 ```
 
-## Values
+This form is also accepted:
 
-Cinder uses signed 32-bit integer values internally.
+```c
+int main(void)
+{
+    return 0;
+}
+```
+
+Cinder begins execution by calling `main`.
+
+## Comments
+
+Single-line comments are supported:
+
+```c
+// This is a comment.
+int answer = 42;
+```
+
+Block comments are supported:
+
+```c
+/*
+ * This is a block comment.
+ */
+int answer = 42;
+```
+
+Nested block comments are not supported.
+
+## Fundamental types
+
+Cinder supports the following fundamental types:
+
+```c
+void
+char
+signed char
+unsigned char
+short
+unsigned short
+int
+unsigned int
+long
+unsigned long
+```
+
+The virtual machine currently uses these sizes:
+
+| Type | Size |
+|---|---:|
+| `char` | 1 byte |
+| `signed char` | 1 byte |
+| `unsigned char` | 1 byte |
+| `short` | 2 bytes |
+| `unsigned short` | 2 bytes |
+| `int` | 4 bytes |
+| `unsigned int` | 4 bytes |
+| `long` | 4 bytes |
+| `unsigned long` | 4 bytes |
+| Pointer | 4 bytes |
+
+Cinder does not currently implement `long long`, floating-point types, or every integer-promotion rule from ISO C.
+
+## Integer literals
 
 Decimal integer literals are supported:
 
 ```c
 0
 42
-2147483647
+100000
 ```
 
-Integer literals outside the signed 32-bit range are rejected.
+Unsigned suffixes are supported:
+
+```c
+15u
+25U
+```
+
+Values are checked against the ranges supported by Cinder’s integer model.
 
 ## Character literals
 
@@ -51,36 +114,447 @@ Character literals produce integer character values:
 '\''
 ```
 
-`char` variables currently occupy an integer-sized VM slot. Cinder does not yet implement every ISO C integer-conversion rule.
+Character values can be stored in `char`, signed character, unsigned character, or integer objects.
+
+```c
+char grade = 'A';
+unsigned char byte = 250;
+```
+
+## String literals
+
+String literals are stored in Cinder’s virtual memory and terminated with a null character.
+
+```c
+char message[] = "Hello, Cinder";
+```
+
+String literals can be:
+
+- Used to initialize character arrays
+- Stored through character pointers
+- Passed to functions
+- Printed with `%s`
+- Indexed like character arrays
+
+Example:
+
+```c
+int main()
+{
+    char message[] = "Hello";
+
+    printf("%s\n", message);
+    printf("%c\n", message[1]);
+
+    return 0;
+}
+```
+
+String literals are not dynamically allocated.
 
 ## Variables
 
-Local integer and character declarations are supported:
+Local variables are supported:
 
 ```c
 int answer = 42;
-int empty;
 char letter = 'A';
 ```
 
-Variables without an initializer start at zero.
-
-Nested scopes and shadowing are supported:
+Variables without an explicit initializer are initialized to zero:
 
 ```c
-int value = 10;
-
-{
-    int value = 20;
-    print(value);
-}
-
-print(value);
+int total;
 ```
 
-Declaring the same name twice in one scope is an error.
+Nested scopes are supported:
+
+```c
+int main()
+{
+    int value = 10;
+
+    {
+        int inner = 20;
+        printf("%d\n", inner);
+    }
+
+    return value;
+}
+```
+
+A nested scope may shadow an outer variable:
+
+```c
+int main()
+{
+    int value = 10;
+
+    {
+        int value = 20;
+        printf("%d\n", value);
+    }
+
+    printf("%d\n", value);
+
+    return 0;
+}
+```
+
+Declaring the same name twice in one active scope is an error.
+
+## Global variables
+
+Global variables are supported:
+
+```c
+int total = 10;
+char message[] = "global text";
+
+int main()
+{
+    printf("%d\n", total);
+    printf("%s\n", message);
+
+    return 0;
+}
+```
+
+Global objects are placed in the virtual machine’s linear memory before program execution begins.
+
+Global arrays and structures are supported.
+
+## Constants
+
+`const` declarations are supported:
+
+```c
+const int limit = 10;
+```
+
+Assignments to `const` objects are rejected:
+
+```c
+const int limit = 10;
+limit = 20;
+```
+
+Cinder enforces `const` for direct assignments to declared objects. It does not yet implement every qualifier-conversion rule required by ISO C.
+
+## Arrays
+
+One-dimensional arrays are supported:
+
+```c
+int numbers[5];
+```
+
+Arrays can be initialized:
+
+```c
+int numbers[5] = {
+    2,
+    4,
+    6,
+    8,
+    10
+};
+```
+
+Array elements can be read and written:
+
+```c
+numbers[2] = 20;
+printf("%d\n", numbers[2]);
+```
+
+Array indexing uses the element type’s size to calculate the memory address.
+
+## Multidimensional arrays
+
+Multidimensional arrays are supported:
+
+```c
+int matrix[2][3] = {
+    {
+        1,
+        2,
+        3
+    },
+    {
+        4,
+        5,
+        6
+    }
+};
+```
+
+Elements can be accessed using multiple index expressions:
+
+```c
+int value = matrix[1][2];
+```
+
+Array dimensions must be known during compilation.
+
+Variable-length arrays are not supported.
+
+## Array initialization
+
+Nested initializer lists are supported:
+
+```c
+int matrix[2][2] = {
+    {
+        1,
+        2
+    },
+    {
+        3,
+        4
+    }
+};
+```
+
+Character arrays may be initialized using string literals:
+
+```c
+char name[] = "Cinder";
+```
+
+Cinder zero-initializes unused storage where supported by the declaration.
+
+Designated initializers are not supported.
+
+## Pointers
+
+Pointer declarations are supported:
+
+```c
+int *pointer;
+char *text;
+```
+
+The address-of operator obtains the address of an object:
+
+```c
+int value = 42;
+int *pointer = &value;
+```
+
+The dereference operator reads or writes the pointed-to object:
+
+```c
+int value = 42;
+int *pointer = &value;
+
+printf("%d\n", *pointer);
+
+*pointer = 100;
+```
+
+Cinder pointers store offsets inside the virtual machine’s linear memory.
+
+They are not native operating-system addresses.
+
+## Pointer arithmetic
+
+Pointer addition and subtraction are supported:
+
+```c
+int numbers[4] = {
+    10,
+    20,
+    30,
+    40
+};
+
+int *pointer = &numbers[0];
+
+printf("%d\n", *(pointer + 2));
+```
+
+Pointer arithmetic scales the integer offset by the size of the pointed-to type.
+
+Array indexing and pointer arithmetic are related:
+
+```c
+numbers[index]
+*(numbers + index)
+```
+
+Invalid virtual-memory access produces a runtime diagnostic.
+
+Complete ISO C pointer-comparison and pointer-provenance rules are not implemented.
+
+## Pointer parameters
+
+Arrays can be passed to functions using pointer or array parameter syntax:
+
+```c
+int sum(
+    int values[],
+    int count
+)
+{
+    int index = 0;
+    int total = 0;
+
+    while (index < count) {
+        total += values[index];
+        index++;
+    }
+
+    return total;
+}
+```
+
+Explicit pointer syntax is also supported:
+
+```c
+int first_value(int *values)
+{
+    return *values;
+}
+```
+
+## Structures
+
+Structures are supported:
+
+```c
+struct Point {
+    int x;
+    int y;
+};
+```
+
+Structure objects can be declared and initialized:
+
+```c
+struct Point point = {
+    10,
+    20
+};
+```
+
+Members are accessed with the member operator:
+
+```c
+point.x = 30;
+printf("%d\n", point.y);
+```
+
+Nested structures are supported:
+
+```c
+struct Position {
+    int row;
+    int column;
+};
+
+struct Record {
+    struct Position position;
+    unsigned short code;
+};
+```
+
+Nested member access is supported:
+
+```c
+record.position.row
+```
+
+Structure layout accounts for member size and alignment.
+
+## Structure pointers
+
+The arrow operator is supported:
+
+```c
+int point_total(
+    struct Point *point
+)
+{
+    return point->x + point->y;
+}
+```
+
+The following expressions refer to the same member:
+
+```c
+pointer->x
+(*pointer).x
+```
+
+## Enumerations
+
+Enumerations are supported:
+
+```c
+enum Status {
+    STATUS_IDLE,
+    STATUS_RUNNING,
+    STATUS_DONE
+};
+```
+
+Explicit values are supported:
+
+```c
+enum Status {
+    STATUS_IDLE = 2,
+    STATUS_RUNNING,
+    STATUS_DONE = 8
+};
+```
+
+When a value is omitted, Cinder assigns the preceding value plus one.
+
+Enumeration constants can be used in expressions and `switch` labels.
+
+## `sizeof`
+
+The `sizeof` operator is supported for types and expressions:
+
+```c
+sizeof(char)
+sizeof(short)
+sizeof(int)
+sizeof(struct Point)
+sizeof(numbers)
+```
+
+`sizeof` returns the number of bytes reserved by Cinder’s virtual-memory model.
+
+For an array object, `sizeof` returns the complete array size:
+
+```c
+int numbers[5];
+
+printf("%u\n", sizeof(numbers));
+```
+
+This prints `20` because each Cinder `int` occupies four bytes.
+
+## Casts
+
+Explicit casts are supported:
+
+```c
+int value = 300;
+unsigned char byte =
+    (unsigned char)value;
+```
+
+Cinder implements conversions for its supported integer types, enumerations, and compatible pointer operations.
+
+It does not implement every implicit conversion or qualifier rule from ISO C.
 
 ## Arithmetic
+
+The following arithmetic operators are supported:
 
 ```c
 a + b
@@ -90,9 +564,16 @@ a / b
 a % b
 ```
 
-Cinder detects division by zero, modulo by zero, and signed arithmetic overflow.
+Cinder reports runtime errors for:
+
+- Division by zero
+- Modulo by zero
+- Invalid arithmetic operations
+- Supported signed-overflow cases detected by the VM
 
 ## Comparisons
+
+The following comparison operators are supported:
 
 ```c
 a == b
@@ -103,9 +584,11 @@ a > b
 a >= b
 ```
 
-Comparison results are `0` or `1`.
+Comparison expressions return `0` or `1`.
 
 ## Logical expressions
+
+Logical operators are supported:
 
 ```c
 a && b
@@ -115,7 +598,11 @@ a || b
 
 Logical AND and logical OR use short-circuit evaluation.
 
+For example, the right operand is not evaluated when the left operand already determines the result.
+
 ## Bitwise expressions
+
+Bitwise operators are supported:
 
 ```c
 a & b
@@ -126,33 +613,58 @@ a << count
 a >> count
 ```
 
-A shift count must be between `0` and `31`.
+Invalid shift counts produce a runtime diagnostic.
 
 ## Assignment
 
+Simple assignment is supported:
+
 ```c
 value = 10;
+```
+
+Compound assignment operators are supported:
+
+```c
 value += 2;
 value -= 2;
 value *= 2;
 value /= 2;
 value %= 2;
+value &= mask;
+value |= mask;
+value ^= mask;
+value <<= count;
+value >>= count;
 ```
 
-Assignments are expressions and return the stored value.
+Assignments are expressions and produce the stored value.
+
+The left side of an assignment must identify writable storage.
 
 ## Increment and decrement
 
+Prefix operations are supported:
+
 ```c
-value++;
-value--;
 ++value;
 --value;
 ```
 
-Postfix operations return the old value. Prefix operations return the updated value.
+Postfix operations are supported:
+
+```c
+value++;
+value--;
+```
+
+Prefix operations produce the updated value.
+
+Postfix operations produce the previous value.
 
 ## Conditional expressions
+
+Conditional expressions are supported:
 
 ```c
 int largest =
@@ -163,13 +675,29 @@ int largest =
 
 Only the selected expression is evaluated.
 
+## Comma expressions
+
+Comma expressions are supported where allowed by Cinder’s grammar:
+
+```c
+value = (first = 10, second = 20);
+```
+
+Expressions are evaluated from left to right, and the final expression supplies the result.
+
 ## Conditions
+
+`if` statements are supported:
 
 ```c
 if (condition) {
     print(1);
 }
+```
 
+`if...else` statements are supported:
+
+```c
 if (condition) {
     print(1);
 } else {
@@ -177,11 +705,11 @@ if (condition) {
 }
 ```
 
-Zero is false. Any nonzero value is true.
+Zero is false.
 
-## Loops
+Any nonzero value is true.
 
-### While
+## `while`
 
 ```c
 while (condition) {
@@ -189,7 +717,9 @@ while (condition) {
 }
 ```
 
-### Do while
+The condition is evaluated before every iteration.
+
+## `do...while`
 
 ```c
 do {
@@ -197,7 +727,9 @@ do {
 } while (condition);
 ```
 
-### For
+The body executes at least once.
+
+## `for`
 
 ```c
 for (
@@ -211,16 +743,73 @@ for (
 
 A missing `for` condition is treated as true.
 
-### Loop control
+## `break` and `continue`
+
+`break` exits the closest loop or `switch` statement:
 
 ```c
-break;
-continue;
+while (1) {
+    break;
+}
 ```
 
-These statements must appear inside a loop.
+`continue` begins the next iteration of the closest loop:
+
+```c
+for (
+    int index = 0;
+    index < 10;
+    index++
+) {
+    if (index == 5) {
+        continue;
+    }
+
+    print(index);
+}
+```
+
+Using these statements outside their valid context is a compiler error.
+
+## `switch`
+
+`switch`, `case`, and `default` are supported:
+
+```c
+int classify(int value)
+{
+    switch (value) {
+        case 0:
+            return 100;
+
+        case 1:
+        case 2:
+            return 200;
+
+        default:
+            return -1;
+    }
+}
+```
+
+Cinder supports:
+
+- Integer switch expressions
+- Enumeration values
+- Multiple labels sharing a statement
+- `default`
+- Fallthrough
+- `break`
+
+Case values must be compile-time integer values supported by Cinder.
+
+Duplicate case labels are rejected.
+
+Only one `default` label is allowed in a `switch`.
 
 ## Functions
+
+Function definitions are supported:
 
 ```c
 int add(
@@ -234,29 +823,72 @@ int add(
 
 Cinder supports:
 
-- `int` and basic `char` declarations
-- As many as 32 parameters
+- Integer parameters
+- Character parameters
+- Pointer parameters
+- Structure pointers
+- Array-parameter syntax
 - Function calls
 - Nested calls
 - Recursion
 - Return values
 - Argument-count checking
+- Basic argument-type checking
 
-Function overloading and function prototypes are not supported.
+Example:
 
-## Output
+```c
+int factorial(int number)
+{
+    if (number < 2) {
+        return 1;
+    }
 
-### `print`
+    return
+        number *
+        factorial(number - 1);
+}
+```
 
-`print` accepts one integer and appends a newline.
+Function overloading is not supported.
+
+Function prototypes without definitions are not currently supported.
+
+Function pointers are not supported.
+
+User-defined variadic functions are not supported.
+
+## `return`
+
+A function returning a value uses:
+
+```c
+return expression;
+```
+
+A `void` function can use:
+
+```c
+return;
+```
+
+Returning an incompatible value produces a diagnostic where Cinder can identify the mismatch.
+
+## `print`
+
+`print` is a Cinder convenience function that prints one integer followed by a newline:
 
 ```c
 print(42);
 ```
 
-### `printf`
+It is provided for small demonstrations and compiler tests.
 
-The first argument must be a literal format string.
+## `printf`
+
+Cinder implements a bounded built-in form of `printf`.
+
+Example:
 
 ```c
 printf(
@@ -271,86 +903,163 @@ Supported conversions:
 |---|---|
 | `%d` | Signed decimal integer |
 | `%i` | Signed decimal integer |
-| `%u` | Unsigned decimal representation |
+| `%u` | Unsigned decimal integer |
 | `%x` | Lowercase hexadecimal |
 | `%X` | Uppercase hexadecimal |
 | `%o` | Octal |
-| `%c` | Character value from 0 to 255 |
+| `%c` | Character |
+| `%s` | Null-terminated string in VM memory |
 | `%%` | Literal percent sign |
 
-Cinder reports missing and extra format arguments.
+Cinder checks the number of format arguments.
 
-## Comments
+Invalid string addresses and unterminated strings are rejected during execution.
+
+Width, precision, flags, and length modifiers are not currently supported.
+
+## `getchar`
+
+`getchar` reads the next byte from Cinder’s standard-input buffer:
 
 ```c
-// Single-line comment
-
-/*
- * Block comment
- */
+int character =
+    getchar();
 ```
 
-Nested block comments are not supported.
+When the input has been exhausted, `getchar` returns `-1`.
+
+Example:
+
+```c
+int main()
+{
+    int character;
+
+    character = getchar();
+
+    while (
+        character != -1 &&
+        character != '\n'
+    ) {
+        printf("%c", character);
+        character = getchar();
+    }
+
+    printf("\n");
+
+    return 0;
+}
+```
+
+The native executable accepts an optional input-file argument:
+
+```powershell
+.\build\cinder.exe `
+    .\program.c `
+    .\input.txt
+```
+
+The WebAssembly module also exposes a separate standard-input buffer. The browser workbench provides access to this buffer when its standard-input panel is enabled.
 
 ## Operator precedence
 
-From lowest to highest:
+From lowest precedence to highest:
 
-1. Assignment
-2. Conditional `?:`
-3. Logical OR `||`
-4. Logical AND `&&`
-5. Bitwise OR `|`
-6. Bitwise XOR `^`
-7. Bitwise AND `&`
-8. Equality `== !=`
-9. Relational `< <= > >=`
-10. Shifts `<< >>`
-11. Addition and subtraction
-12. Multiplication, division, and modulo
-13. Unary operations
-14. Primary expressions and postfix updates
+1. Comma
+2. Assignment
+3. Conditional `?:`
+4. Logical OR `||`
+5. Logical AND `&&`
+6. Bitwise OR `|`
+7. Bitwise XOR `^`
+8. Bitwise AND `&`
+9. Equality `== !=`
+10. Relational `< <= > >=`
+11. Shifts `<< >>`
+12. Addition and subtraction
+13. Multiplication, division, and modulo
+14. Cast and unary operators
+15. Postfix expressions
+16. Primary expressions
+
+Parentheses may be used to control evaluation:
+
+```c
+result =
+    (first + second) *
+    third;
+```
+
+## Evaluation model
+
+Cinder compiles source into stack-based bytecode.
+
+The bytecode runs inside a bounded virtual machine rather than executing as native machine code.
+
+Function arguments are evaluated from left to right by the current implementation.
+
+Programs are stopped if they exceed the instruction limit.
 
 ## Compiler limits
 
 | Resource | Maximum |
 |---|---:|
-| Source text | 32 KB |
-| Tokens | 8,192 |
-| Syntax-tree nodes | 8,192 |
-| Generated instructions | 16,384 |
-| Functions | 128 |
-| Parameters per function | 32 |
-| Local variables per function | 256 |
-| VM value stack | 4,096 values |
-| Function-call depth | 128 |
-| Executed instructions | 200,000 |
-| Program output | 8 KB |
+| Source text | 64 KB |
+| Standard input | 64 KB |
+| Tokens | 16,384 |
+| Syntax-tree nodes | 24,576 |
+| Types | 4,096 |
+| Symbols | 8,192 |
+| Functions | 256 |
+| Structures | 256 |
+| Structure members | 4,096 |
+| Enumerations | 256 |
+| Enumeration values | 2,048 |
+| Generated instructions | 49,152 |
+| VM value stack | 16,384 values |
+| Function-call depth | 256 |
+| Executed instructions | 1,000,000 |
+| Program output | 16 KB |
+| Virtual memory | 2 MB |
+| Diagnostics | 128 |
 
-The browser adds a three-second worker timeout.
+The browser additionally applies a time limit to worker requests.
 
 ## Unsupported C features
 
 Cinder currently does not support:
 
-- Arrays
-- Pointers
-- Global variables
-- String variables
-- `%s`
-- `scanf`
-- `switch`, `case`, or `default`
-- Structures or unions
-- Enums
-- `typedef`
-- Floating-point types
-- `short`, `long`, or a complete unsigned type system
-- Function prototypes
-- Variadic user-defined functions
-- Multiple source files
-- Header inclusion
+- Complete ISO C compatibility
+- Preprocessor directives
+- `#include`
 - Macros
-- The standard C library
-- Filesystem, network, or process APIs
+- Conditional compilation
+- `typedef`
+- Unions
+- Bit-fields
+- Flexible array members
+- Variable-length arrays
+- Designated initializers
+- Compound literals
+- `_Bool`
+- `_Complex`
+- Floating-point types
+- `long long`
+- Function prototypes without definitions
+- Function pointers
+- Variadic user-defined functions
+- Complete storage-class semantics
+- Complete qualifier-conversion rules
+- Complete integer-promotion rules
+- Multiple translation units
+- Header files
+- Dynamic linking
+- Dynamic memory allocation
+- The complete C standard library
+- Filesystem APIs
+- Network APIs
+- Process APIs
+- Threads
+- Native machine-code generation
 
-Programs requiring those features should be compiled with a complete implementation such as GCC or Clang.
+Programs requiring these features should be compiled using a complete C implementation such as GCC or Clang.

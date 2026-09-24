@@ -4,6 +4,12 @@ const developerEmail =
 const compilationTimeoutMilliseconds =
   3000;
 
+const maximumStdinBytes =
+  65535;
+
+const textEncoder =
+  new TextEncoder();
+
 const maximumRenderedTokens =
   1200;
 
@@ -98,6 +104,218 @@ int main() {
   return total;
 }`,
 
+    memory: `int global_numbers[5] = {
+  3,
+  5,
+  8,
+  13,
+  21
+};
+
+char global_message[] =
+  "Cinder memory works";
+
+int sum_values(
+  int values[],
+  int count
+) {
+  int index = 0;
+  int total = 0;
+
+  while (index < count) {
+    total += values[index];
+    index++;
+  }
+
+  return total;
+}
+
+int main() {
+  int local_numbers[5] = {
+    2,
+    4,
+    6,
+    8,
+    10
+  };
+
+  int matrix[2][3] = {
+    {
+      1,
+      2,
+      3
+    },
+    {
+      4,
+      5,
+      6
+    }
+  };
+
+  char message[] =
+    "arrays + pointers + strings";
+
+  int *pointer =
+    &local_numbers[0];
+
+  int global_total =
+    sum_values(
+      global_numbers,
+      5
+    );
+
+  int local_total =
+    sum_values(
+      pointer,
+      5
+    );
+
+  printf("%s\\n", global_message);
+  printf("%s\\n", message);
+
+  printf(
+    "global=%d local=%d matrix=%d\\n",
+    global_total,
+    local_total,
+    matrix[1][2]
+  );
+
+  printf(
+    "pointer[2]=%d sizeof=%u\\n",
+    *(pointer + 2),
+    sizeof(local_numbers)
+  );
+
+  return global_total + local_total;
+}`,
+
+  structures: `enum Status {
+  STATUS_IDLE = 2,
+  STATUS_RUNNING,
+  STATUS_DONE = 8
+};
+
+struct Point {
+  int x;
+  int y;
+};
+
+struct Record {
+  struct Point position;
+  unsigned short code;
+  char grade;
+};
+
+int classify(int value) {
+  switch (value) {
+    case 0:
+      return 100;
+
+    case 1:
+    case 2:
+      return 200;
+
+    case 3:
+      return 300;
+
+    default:
+      return -1;
+  }
+}
+
+int point_total(
+  struct Point *point
+) {
+  return point->x + point->y;
+}
+
+int main() {
+  const int fixed = 7;
+
+  struct Point point = {
+    12,
+    30
+  };
+
+  struct Record record = {
+    {
+      4,
+      9
+    },
+    65530,
+    'A'
+  };
+
+  enum Status status =
+    STATUS_RUNNING;
+
+  printf(
+    "point=%d,%d total=%d\\n",
+    point.x,
+    point.y,
+    point_total(&point)
+  );
+
+  printf(
+    "record=%d,%d code=%u grade=%c\\n",
+    record.position.x,
+    record.position.y,
+    record.code,
+    record.grade
+  );
+
+  printf(
+    "enum=%d switch=%d const=%d\\n",
+    status,
+    classify(2),
+    fixed
+  );
+
+  printf(
+    "sizes=%u,%u,%u,%u\\n",
+    sizeof(char),
+    sizeof(short),
+    sizeof(int),
+    sizeof(struct Point)
+  );
+
+  return point_total(&point);
+}`,
+
+  standardInput: `int main() {
+  char text[64];
+  int length = 0;
+  int character;
+
+  character = getchar();
+
+  while (
+    character != -1 &&
+    character != '\\n' &&
+    length < 63
+  ) {
+    text[length] =
+      (char)character;
+
+    length++;
+    character = getchar();
+  }
+
+  text[length] = '\\0';
+
+  printf(
+    "input=%s\\n",
+    text
+  );
+
+  printf(
+    "length=%d\\n",
+    length
+  );
+
+  return length;
+}`,
+
   error: `int main() {
   int answer = 40;
 
@@ -107,6 +325,18 @@ int main() {
 
   return 0;
 }`
+};
+
+const exampleInputs = {
+  fibonacci: "",
+  factorial: "",
+  fizzbuzz: "",
+  controlFlow: "",
+  memory: "",
+  structures: "",
+  standardInput:
+    "Cinder browser input\n",
+  error: ""
 };
 
 /* DOM references */
@@ -122,6 +352,17 @@ const sourceInformation =
 
 const sourceErrorMarker =
   document.querySelector("#sourceErrorMarker");
+
+const stdinEditor =
+  document.querySelector("#stdinEditor");
+
+const stdinSize =
+  document.querySelector("#stdinSize");
+
+const clearStdinButton =
+  document.querySelector(
+    "#clearStdinButton"
+  );
 
 const exampleSelect =
   document.querySelector("#exampleSelect");
@@ -419,6 +660,61 @@ function selectToken(tokenIndex) {
   );
 }
 
+/* Standard input */
+
+function getUtf8ByteCount(value) {
+  return textEncoder.encode(value).length;
+}
+
+function formatByteCount(bytes) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const kibibytes =
+    bytes / 1024;
+
+  return `${kibibytes.toFixed(1)} KB`;
+}
+
+function updateStdinSize() {
+  const bytes =
+    getUtf8ByteCount(
+      stdinEditor.value
+    );
+
+  stdinSize.textContent =
+    `${formatByteCount(bytes)} / 64 KB`;
+
+  stdinSize.classList.toggle(
+    "warning",
+    bytes >= maximumStdinBytes * 0.9 &&
+      bytes <= maximumStdinBytes
+  );
+
+  stdinSize.classList.toggle(
+    "error",
+    bytes > maximumStdinBytes
+  );
+
+  return bytes;
+}
+
+function clearStandardInput(
+  shouldAnnounce = true
+) {
+  stdinEditor.value = "";
+  updateStdinSize();
+
+  if (shouldAnnounce) {
+    showToast(
+      "Program input cleared."
+    );
+  }
+
+  stdinEditor.focus();
+}
+
 /* Examples */
 
 function loadExample(
@@ -431,7 +727,12 @@ function loadExample(
 
   currentExample = name;
   exampleSelect.value = name;
-  codeEditor.value = examples[name];
+    codeEditor.value = examples[name];
+
+  stdinEditor.value =
+    exampleInputs[name] || "";
+
+  updateStdinSize();
 
   sourceErrorMarker.hidden = true;
   compilerDiagnostic.hidden = true;
@@ -643,7 +944,10 @@ function createCompilerWorker() {
 
 /* Worker compilation request */
 
-function compileWithWorker(sourceCode) {
+function compileWithWorker(
+  sourceCode,
+  stdinText
+) {
   if (
     !compilerWorker ||
     !compilerWorkerReady
@@ -703,10 +1007,11 @@ function compileWithWorker(sourceCode) {
         timeout
       };
 
-      compilerWorker.postMessage({
+            compilerWorker.postMessage({
         type: "compile",
         requestId,
-        source: sourceCode
+        source: sourceCode,
+        stdin: stdinText
       });
     }
   );
@@ -719,6 +1024,22 @@ async function runCode() {
     showToast(
       "The C engine is still loading."
     );
+
+        return null;
+  }
+
+  const stdinBytes =
+    updateStdinSize();
+
+  if (
+    stdinBytes >
+    maximumStdinBytes
+  ) {
+    showToast(
+      "Program input exceeds the 64 KB limit."
+    );
+
+    stdinEditor.focus();
 
     return null;
   }
@@ -742,8 +1063,9 @@ async function runCode() {
 
   try {
     const report =
-      await compileWithWorker(
-        codeEditor.value
+            await compileWithWorker(
+        codeEditor.value,
+        stdinEditor.value
       );
 
     latestReport = report;
@@ -1511,6 +1833,49 @@ codeEditor.addEventListener(
 codeEditor.addEventListener(
   "keydown",
   handleEditorKeydown
+);
+
+/* Standard-input events */
+
+stdinEditor.addEventListener(
+  "input",
+  updateStdinSize
+);
+
+stdinEditor.addEventListener(
+  "keydown",
+  (event) => {
+    const isRunShortcut =
+      (
+        event.ctrlKey ||
+        event.metaKey
+      ) &&
+      (
+        event.key === "Enter" ||
+        event.code === "Enter" ||
+        event.code === "NumpadEnter"
+      );
+
+    if (!isRunShortcut) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    showToast(
+      "Running with Ctrl+Enter."
+    );
+
+    runCode();
+  }
+);
+
+clearStdinButton.addEventListener(
+  "click",
+  () => {
+    clearStandardInput(true);
+  }
 );
 
 /* Workbench buttons */

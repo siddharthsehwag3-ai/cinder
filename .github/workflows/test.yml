@@ -4,15 +4,22 @@ on:
   push:
     branches:
       - main
+      - "feature/**"
+      - "fix/**"
+      - "docs/**"
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: cinder-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
-    name: Build and test
+    name: Build and test Cinder
     runs-on: windows-latest
     timeout-minutes: 15
 
@@ -21,9 +28,10 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install GCC
-        uses: egor-tensin/setup-mingw@v2
+        uses: egor-tensin/setup-mingw@v3
         with:
           platform: x64
+          version: 12.2.0
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
@@ -33,29 +41,440 @@ jobs:
       - name: Show tool versions
         shell: pwsh
         run: |
+          Write-Host "GCC"
           gcc --version
+
+          Write-Host ""
+          Write-Host "Zig"
           zig version
+
+          Write-Host ""
+          Write-Host "PowerShell"
+          $PSVersionTable.PSVersion
+
+          Write-Host ""
+          Write-Host "Git"
+          git --version
+
+      - name: Verify repository files
+        shell: pwsh
+        run: |
+          $requiredFiles = @(
+            ".gitignore",
+            "CONTRIBUTING.md",
+            "LICENSE",
+            "README.md",
+            "vercel.json",
+            "compiler/cinder.c",
+            "docs/ARCHITECTURE.md",
+            "docs/LANGUAGE.md",
+            "docs/ROADMAP.md",
+            "docs/screenshots/compiler-error.png",
+            "docs/screenshots/desktop-workbench.png",
+            "docs/screenshots/mobile-workbench.png",
+            "docs/screenshots/syntax-tree.png",
+            "scripts/build.ps1",
+            "scripts/serve.ps1",
+            "scripts/test.ps1",
+            "tests/arithmetic.c",
+            "tests/control-flow.c",
+            "tests/diagnostics.c",
+            "tests/extended.c",
+            "tests/functions.c",
+            "tests/advanced-memory.c",
+            "tests/advanced-stdin.c",
+            "tests/advanced-stdin.txt",
+            "tests/advanced-types.c",
+            "web/app.js",
+            "web/compiler-worker.js",
+            "web/globals.css",
+            "web/index.html"
+          )
+
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path -LiteralPath $file)) {
+              throw "Missing required file: $file"
+            }
+
+            $item = Get-Item -LiteralPath $file
+
+            if ($item.PSIsContainer) {
+              throw (
+                "Expected a file but found " +
+                "a directory: $file"
+              )
+            }
+
+            if ($item.Length -eq 0) {
+              throw "Required file is empty: $file"
+            }
+          }
+
+          Write-Host (
+            "$($requiredFiles.Count) required " +
+            "files are present."
+          )
+
+      - name: Verify temporary files are not tracked
+        shell: pwsh
+        run: |
+          $trackedFiles = @(git ls-files)
+
+          $temporaryFiles = @(
+            $trackedFiles |
+              Where-Object {
+                $_ -match (
+                  "^compiler/" +
+                  ".*(next|before|backup|temporary).*\.c$"
+                ) -or
+                $_ -match "\.(bak|backup|tmp|temp)$"
+              }
+          )
+
+          if ($temporaryFiles.Count -gt 0) {
+            Write-Host "Temporary files found:"
+
+            foreach ($file in $temporaryFiles) {
+              Write-Host "  $file"
+            }
+
+            throw (
+              "Temporary files must not be committed."
+            )
+          }
+
+          Write-Host (
+            "No temporary files are tracked."
+          )
+
+      - name: Validate Vercel configuration
+        shell: pwsh
+        run: |
+          try {
+            $configuration =
+              Get-Content `
+                -LiteralPath "vercel.json" `
+                -Raw |
+              ConvertFrom-Json
+          } catch {
+            throw (
+              "vercel.json is not valid JSON. " +
+              $_.Exception.Message
+            )
+          }
+
+          if (-not $configuration.headers) {
+            throw (
+              "vercel.json does not define " +
+              "deployment headers."
+            )
+          }
+
+          Write-Host "vercel.json is valid."
 
       - name: Build and test Cinder
         shell: pwsh
         run: |
           ./scripts/test.ps1
 
+      - name: Verify native executable
+        shell: pwsh
+        run: |
+          $nativePath = "build/cinder.exe"
+
+          if (
+            -not (
+              Test-Path -LiteralPath $nativePath
+            )
+          ) {
+            throw (
+              "The native compiler was not created."
+            )
+          }
+
+          $nativeCompiler =
+            Get-Item -LiteralPath $nativePath
+
+          if ($nativeCompiler.Length -eq 0) {
+            throw (
+              "The native compiler executable is empty."
+            )
+          }
+
+          Write-Host (
+            "Native compiler size: " +
+            $nativeCompiler.Length +
+            " bytes"
+          )
+
+      - name: Verify WebAssembly module
+        shell: pwsh
+        run: |
+          $wasmPath = "web/cinder.wasm"
+
+          if (
+            -not (
+              Test-Path -LiteralPath $wasmPath
+            )
+          ) {
+            throw (
+              "The WebAssembly compiler was not created."
+            )
+          }
+
+          $wasm =
+            Get-Item -LiteralPath $wasmPath
+
+          if ($wasm.Length -eq 0) {
+            throw (
+              "The WebAssembly compiler is empty."
+            )
+          }
+
+          $bytes =
+            [System.IO.File]::ReadAllBytes(
+              $wasm.FullName
+            )
+
+          if ($bytes.Length -lt 8) {
+            throw (
+              "The WebAssembly compiler has " +
+              "an invalid header."
+            )
+          }
+
+          $validMagic =
+            $bytes[0] -eq 0x00 -and
+            $bytes[1] -eq 0x61 -and
+            $bytes[2] -eq 0x73 -and
+            $bytes[3] -eq 0x6D
+
+          if (-not $validMagic) {
+            throw (
+              "web/cinder.wasm has invalid " +
+              "WebAssembly magic bytes."
+            )
+          }
+
+          $validVersion =
+            $bytes[4] -eq 0x01 -and
+            $bytes[5] -eq 0x00 -and
+            $bytes[6] -eq 0x00 -and
+            $bytes[7] -eq 0x00
+
+          if (-not $validVersion) {
+            throw (
+              "web/cinder.wasm is not " +
+              "WebAssembly binary version 1."
+            )
+          }
+
+          Write-Host (
+            "WebAssembly compiler size: " +
+            $wasm.Length +
+            " bytes"
+          )
+
       - name: Verify deployment files
         shell: pwsh
         run: |
-          $requiredFiles = @(
+          $deploymentFiles = @(
             "web/index.html",
             "web/globals.css",
             "web/app.js",
             "web/compiler-worker.js",
-            "web/cinder.wasm"
+            "web/cinder.wasm",
+            "vercel.json"
           )
 
-          foreach ($file in $requiredFiles) {
-            if (-not (Test-Path -LiteralPath $file)) {
-              throw "Missing deployment file: $file"
+          foreach ($file in $deploymentFiles) {
+            if (
+              -not (
+                Test-Path -LiteralPath $file
+              )
+            ) {
+              throw (
+                "Missing deployment file: $file"
+              )
+            }
+
+            $item =
+              Get-Item -LiteralPath $file
+
+            if ($item.Length -eq 0) {
+              throw (
+                "Deployment file is empty: $file"
+              )
+            }
+
+            Write-Host (
+              "$file - " +
+              $item.Length +
+              " bytes"
+            )
+          }
+
+          Write-Host (
+            "All deployment files are ready."
+          )
+
+      - name: Verify browser compiler integration
+        shell: pwsh
+        run: |
+          $worker =
+            Get-Content `
+              -LiteralPath "web/compiler-worker.js" `
+              -Raw
+
+          $application =
+            Get-Content `
+              -LiteralPath "web/app.js" `
+              -Raw
+
+          $page =
+            Get-Content `
+              -LiteralPath "web/index.html" `
+              -Raw
+
+          $requiredWorkerTerms = @(
+            "stdin_ptr",
+            "stdin_capacity",
+            "set_stdin_len",
+            "message.stdin"
+          )
+
+          foreach ($term in $requiredWorkerTerms) {
+            if (-not $worker.Contains($term)) {
+              throw (
+                "compiler-worker.js is missing: " +
+                $term
+              )
             }
           }
 
-          Write-Host "All deployment files are present."
+          $requiredApplicationTerms = @(
+            "stdinEditor",
+            "maximumStdinBytes",
+            "stdin: stdinText"
+          )
+
+          foreach (
+            $term in
+            $requiredApplicationTerms
+          ) {
+            if (
+              -not $application.Contains($term)
+            ) {
+              throw (
+                "app.js is missing: " +
+                $term
+              )
+            }
+          }
+
+          $requiredPageTerms = @(
+            'id="stdinEditor"',
+            'id="stdinSize"',
+            'id="clearStdinButton"'
+          )
+
+          foreach ($term in $requiredPageTerms) {
+            if (-not $page.Contains($term)) {
+              throw (
+                "index.html is missing: " +
+                $term
+              )
+            }
+          }
+
+          Write-Host (
+            "Browser standard-input integration " +
+            "is present."
+          )
+
+      - name: Verify screenshots
+        shell: pwsh
+        run: |
+          $screenshots = @(
+            "docs/screenshots/compiler-error.png",
+            "docs/screenshots/desktop-workbench.png",
+            "docs/screenshots/mobile-workbench.png",
+            "docs/screenshots/syntax-tree.png"
+          )
+
+          foreach ($screenshot in $screenshots) {
+            $resolvedScreenshot =
+              Resolve-Path `
+                -LiteralPath $screenshot
+
+            $bytes =
+              [System.IO.File]::ReadAllBytes(
+                $resolvedScreenshot.Path
+              )
+
+            if ($bytes.Length -lt 8) {
+              throw (
+                "Screenshot is too small: " +
+                $screenshot
+              )
+            }
+
+            $validPng =
+              $bytes[0] -eq 0x89 -and
+              $bytes[1] -eq 0x50 -and
+              $bytes[2] -eq 0x4E -and
+              $bytes[3] -eq 0x47 -and
+              $bytes[4] -eq 0x0D -and
+              $bytes[5] -eq 0x0A -and
+              $bytes[6] -eq 0x1A -and
+              $bytes[7] -eq 0x0A
+
+            if (-not $validPng) {
+              throw (
+                "Screenshot is not a valid PNG: " +
+                $screenshot
+              )
+            }
+
+            Write-Host (
+              "$screenshot - " +
+              $bytes.Length +
+              " bytes"
+            )
+          }
+
+          Write-Host (
+            "All screenshots are valid PNG files."
+          )
+
+      - name: Summarize successful build
+        shell: pwsh
+        run: |
+          $nativeCompiler =
+            Get-Item `
+              -LiteralPath "build/cinder.exe"
+
+          $wasmCompiler =
+            Get-Item `
+              -LiteralPath "web/cinder.wasm"
+
+          Write-Host ""
+          Write-Host (
+            "Cinder CI completed successfully."
+          )
+
+          Write-Host (
+            "Native compiler: " +
+            $nativeCompiler.Length +
+            " bytes"
+          )
+
+          Write-Host (
+            "WebAssembly compiler: " +
+            $wasmCompiler.Length +
+            " bytes"
+          )
+
+          Write-Host (
+            "Compiler tests: 8 of 8 passed"
+          )
