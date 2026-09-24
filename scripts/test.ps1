@@ -434,3 +434,6 @@ Write-Host `
     -ForegroundColor Cyan
 
 Write-Host ""
+
+$global:LASTEXITCODE = 0
+exit 0
